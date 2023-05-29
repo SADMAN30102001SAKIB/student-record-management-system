@@ -3,6 +3,7 @@
 #include <string.h>
 
 #define MAX_SIZE 20
+int change = 0;
 
 typedef struct
 {
@@ -24,7 +25,7 @@ int save_students_to_file(Student arr[], int num_students, const char *filename)
 
     for (int i = 0; i < num_students; i++)
     {
-        fprintf(file, "%d,%s,%.2f\n", arr[i].id, arr[i].name, arr[i].gpa);
+        fprintf(file, "%d, %s, %.2f\n", arr[i].id, arr[i].name, arr[i].gpa);
     }
 
     if (fclose(file) != 0)
@@ -32,6 +33,11 @@ int save_students_to_file(Student arr[], int num_students, const char *filename)
         fprintf(stderr, "\nError closing file: %s\n", filename);
         perror("fclose");
         return -1;
+    }
+
+    if (change)
+    {
+        printf("Changes saved to file!\n");
     }
 
     return 0;
@@ -50,28 +56,23 @@ int get_students_from_file(Student arr[], int *num_students, const char *filenam
 
     printf("\ngetting data from file...\n");
 
-    char line[100];
+    int id;
+    char name[50];
+    float gpa;
 
-    while (fgets(line, sizeof(line), file) != NULL)
+    while (fscanf(file, "%d, %[^,], %f", &id, name, &gpa) == 3)
     {
-        int id;
-        char name[50];
-        float gpa;
-
-        if (sscanf(line, "%d,%[^,],%f", &id, name, &gpa) == 3)
+        if (*num_students == MAX_NUM_STUDENTS)
         {
-            if (*num_students == MAX_NUM_STUDENTS)
-            {
-                fprintf(stderr, "Maximum number of students reached.");
-                return -1;
-            }
-
-            arr[*num_students].id = id;
-            strcpy(arr[*num_students].name, name);
-            arr[*num_students].gpa = gpa;
-
-            (*num_students)++;
+            fprintf(stderr, "Maximum number of students reached.");
+            return -1;
         }
+
+        arr[*num_students].id = id;
+        strcpy(arr[*num_students].name, name);
+        arr[*num_students].gpa = gpa;
+
+        (*num_students)++;
     }
 
     if (fclose(file) != 0)
@@ -84,21 +85,6 @@ int get_students_from_file(Student arr[], int *num_students, const char *filenam
     printf("done getting %d student data.", *num_students);
 
     return 0;
-}
-
-void display_menu()
-{
-    printf("\n\n");
-    printf("********** MENU **********\n");
-    printf("1. Add Student\n");
-    printf("2. Delete Student\n");
-    printf("3. Display All Students\n");
-    printf("4. Display Students By GPA\n");
-    printf("5. Display Students By Name\n");
-    printf("6. Search Students\n");
-    printf("7. Calculate Average GPA\n");
-    printf("8. Update Student\n");
-    printf("9. Quit\n");
 }
 
 int add_student(Student arr[], int *num_students, int MAX_NUM_STUDENTS)
@@ -130,6 +116,14 @@ int add_student(Student arr[], int *num_students, int MAX_NUM_STUDENTS)
     getchar();
     printf("Enter student name: ");
     fgets(new_student.name, MAX_SIZE, stdin);
+    for (int i = 0; i < strlen(new_student.name); i++)
+    {
+        if (new_student.name[i] == ',')
+        {
+            fprintf(stderr, "\nName should not contain comma(,).");
+            return -1;
+        }
+    }
     new_student.name[strlen(new_student.name) - 1] = '\0';
 
     printf("Enter student GPA: ");
@@ -149,6 +143,7 @@ int add_student(Student arr[], int *num_students, int MAX_NUM_STUDENTS)
     (*num_students)++;
 
     printf("\nStudent added successfully.");
+    change = 1;
 
     return 0;
 }
@@ -195,11 +190,12 @@ int delete_student(Student arr[], int *num_students)
     (*num_students)--;
 
     printf("\nStudent deleted successfully.");
+    change = 1;
 
     return 0;
 }
 
-int update(Student arr[], int num_students)
+int update_student(Student arr[], int num_students)
 {
     int id;
 
@@ -227,19 +223,38 @@ int update(Student arr[], int num_students)
         return -1;
     }
 
+    int gpa;
+    char name[MAX_SIZE];
+
     printf("Enter new name: ");
     getchar();
-    fgets(arr[index].name, MAX_SIZE, stdin);
-    arr[index].name[strlen(arr[index].name) - 1] = '\0';
+    fgets(name, MAX_SIZE, stdin);
+    for (int i = 0; i < strlen(name); i++)
+    {
+        if (name[i] == ',')
+        {
+            fprintf(stderr, "\nName should not contain comma(,).");
+            return -1;
+        }
+    }
+    name[strlen(name) - 1] = '\0';
+    strcpy(arr[index].name, name);
 
     printf("Enter new GPA: ");
-    if (scanf("%f", &arr[index].gpa) != 1)
+    if (scanf("%f", &gpa) != 1)
     {
         fprintf(stderr, "\nInvalid input for student GPA.");
         return -1;
     }
+    if (gpa < 0 || gpa > 4)
+    {
+        fprintf(stderr, "\nInvalid GPA. Please enter a value between 0 and 4.\n");
+        return -1;
+    }
+    arr[index].gpa = gpa;
 
     printf("\nStudent updated successfully.");
+    change = 1;
 
     return 0;
 }
@@ -282,15 +297,6 @@ int avg_gpa(Student arr[], int num_students)
     printf("\nThe average GPA is %f\n", sum / num_students);
 
     return 0;
-}
-
-void display_search_menu()
-{
-    printf("\n");
-    printf("********** SEARCH BY **********\n");
-    printf("1. ID\n");
-    printf("2. GPA\n");
-    printf("3. Name\n");
 }
 
 int search_by_ID(Student arr[], int num_students)
@@ -407,7 +413,7 @@ int search_by_Name(Student arr[], int num_students)
 
     if (index == -1)
     {
-        printf("\nStudent with GPA %s not found.", name);
+        printf("\nStudent with Name: %s not found.", name);
         return -1;
     }
 
@@ -424,6 +430,16 @@ int search_by_Name(Student arr[], int num_students)
     }
 
     return 0;
+}
+
+void display_search_menu()
+{
+    printf("\n");
+    printf("********** SEARCH BY **********\n");
+    printf("1. ID\n");
+    printf("2. GPA\n");
+    printf("3. Name\n");
+    printf("4. Go back\n");
 }
 
 int search_students(Student arr[], int num_students)
@@ -445,9 +461,9 @@ int search_students(Student arr[], int num_students)
         return -1;
     }
 
-    if (choice < 1 || choice > 3)
+    if (choice < 1 || choice > 4)
     {
-        fprintf(stderr, "\nInvalid Choice. Please enter a value between 1 and 3.\n");
+        fprintf(stderr, "\nInvalid Choice. Please enter a value between 1 and 4.\n");
         return -1;
     }
 
@@ -462,6 +478,9 @@ int search_students(Student arr[], int num_students)
     case 3:
         search_by_Name(arr, num_students);
         break;
+    case 4:
+        return 0;
+        break;
     default:
         printf("Invalid choice.\n");
     }
@@ -470,7 +489,7 @@ int search_students(Student arr[], int num_students)
 }
 
 // Merge function to help with mergesort
-void merge(Student arr[], int left, int mid, int right, int gpa_name)
+void merge(Student arr[], int left, int mid, int right, int gpa_name_id)
 {
     int n1 = mid - left + 1;
     int n2 = right - mid;
@@ -493,7 +512,20 @@ void merge(Student arr[], int left, int mid, int right, int gpa_name)
 
     while (i < n1 && j < n2)
     {
-        if (gpa_name)
+        if (gpa_name_id == 1)
+        {
+            if (L[i].id <= R[j].id)
+            {
+                arr[k] = L[i];
+                i++;
+            }
+            else
+            {
+                arr[k] = R[j];
+                j++;
+            }
+        }
+        else if (gpa_name_id == 2)
         {
             if (L[i].gpa >= R[j].gpa)
             {
@@ -550,20 +582,20 @@ void merge(Student arr[], int left, int mid, int right, int gpa_name)
 }
 
 // Mergesort function
-void mergesort(Student arr[], int left, int right, int gpa_name)
+void mergesort(Student arr[], int left, int right, int gpa_name_id)
 {
     if (left < right)
     {
         int mid = left + (right - left) / 2;
 
-        mergesort(arr, left, mid, gpa_name);
-        mergesort(arr, mid + 1, right, gpa_name);
+        mergesort(arr, left, mid, gpa_name_id);
+        mergesort(arr, mid + 1, right, gpa_name_id);
 
-        merge(arr, left, mid, right, gpa_name);
+        merge(arr, left, mid, right, gpa_name_id);
     }
 }
 
-int display_students_by_gpa(Student arr[], int num_students, int MAX_NUM_STUDENTS)
+int sort_students_by_id(Student arr[], int num_students, int MAX_NUM_STUDENTS)
 {
     if (num_students == 0)
     {
@@ -571,7 +603,7 @@ int display_students_by_gpa(Student arr[], int num_students, int MAX_NUM_STUDENT
         return -1;
     }
 
-    // Create a copy of the array to sort by GPA
+    // Create a copy of the array to sort by ID
     Student arr_copy[MAX_NUM_STUDENTS];
 
     for (int i = 0; i < num_students; i++)
@@ -582,18 +614,18 @@ int display_students_by_gpa(Student arr[], int num_students, int MAX_NUM_STUDENT
     mergesort(arr_copy, 0, num_students - 1, 1); // sort
 
     printf("\n");
-    printf("********** STUDENTS SORTED BY GPA **********\n");
-    printf("%-10s%-20s%-10s\n", "ID", "Name", "GPA");
+    printf("********** STUDENTS SORTED BY ID **********\n");
+    printf("      %-10s%-20s%-10s\n", "ID", "Name", "GPA");
 
     for (int i = 0; i < num_students; i++)
     {
-        printf("%-10d%-20s%-10.2f\n", arr_copy[i].id, arr_copy[i].name, arr_copy[i].gpa);
+        printf("      %-10d%-20s%-10.2f\n", arr_copy[i].id, arr_copy[i].name, arr_copy[i].gpa);
     }
 
     return 0;
 }
 
-int display_students_by_name(Student arr[], int num_students, int MAX_NUM_STUDENTS)
+int sort_students_by_gpa(Student arr[], int num_students, int MAX_NUM_STUDENTS)
 {
     if (num_students == 0)
     {
@@ -609,32 +641,132 @@ int display_students_by_name(Student arr[], int num_students, int MAX_NUM_STUDEN
         arr_copy[i] = arr[i];
     }
 
-    mergesort(arr_copy, 0, num_students - 1, 0); // sort
+    mergesort(arr_copy, 0, num_students - 1, 2); // sort
 
     printf("\n");
-    printf("********** STUDENTS SORTED BY NAME **********\n");
-    printf("%-10s%-20s%-10s\n", "ID", "Name", "GPA");
+    printf("********** STUDENTS SORTED BY GPA **********\n");
+    printf("      %-10s%-20s%-10s\n", "ID", "Name", "GPA");
 
     for (int i = 0; i < num_students; i++)
     {
-        printf("%-10d%-20s%-10.2f\n", arr_copy[i].id, arr_copy[i].name, arr_copy[i].gpa);
+        printf("      %-10d%-20s%-10.2f\n", arr_copy[i].id, arr_copy[i].name, arr_copy[i].gpa);
     }
 
     return 0;
 }
 
+int sort_students_by_name(Student arr[], int num_students, int MAX_NUM_STUDENTS)
+{
+    if (num_students == 0)
+    {
+        fprintf(stderr, "\nNo students to display.");
+        return -1;
+    }
+
+    // Create a copy of the array to sort by Name
+    Student arr_copy[MAX_NUM_STUDENTS];
+
+    for (int i = 0; i < num_students; i++)
+    {
+        arr_copy[i] = arr[i];
+    }
+
+    mergesort(arr_copy, 0, num_students - 1, 3); // sort
+
+    printf("\n");
+    printf("********** STUDENTS SORTED BY NAME **********\n");
+    printf("      %-10s%-20s%-10s\n", "ID", "Name", "GPA");
+
+    for (int i = 0; i < num_students; i++)
+    {
+        printf("      %-10d%-20s%-10.2f\n", arr_copy[i].id, arr_copy[i].name, arr_copy[i].gpa);
+    }
+
+    return 0;
+}
+
+void display_sort_menu()
+{
+    printf("\n");
+    printf("********** DISPLAY BY **********\n");
+    printf("1. ID\n");
+    printf("2. GPA\n");
+    printf("3. Name\n");
+    printf("4. Go Back\n");
+}
+
+int sort_students(Student arr[], int num_students, int maxStudent)
+{
+    if (num_students == 0)
+    {
+        fprintf(stderr, "\nNo students to display.");
+        return -1;
+    }
+
+    display_sort_menu();
+
+    int choice;
+
+    printf("Enter your choice: ");
+    if (scanf("%d", &choice) != 1)
+    {
+        fprintf(stderr, "\nInvalid input for choice.\n");
+        return -1;
+    }
+
+    if (choice < 1 || choice > 4)
+    {
+        fprintf(stderr, "\nInvalid Choice. Please enter a value between 1 and 4.\n");
+        return -1;
+    }
+
+    switch (choice)
+    {
+    case 1:
+        sort_students_by_id(arr, num_students, maxStudent);
+        break;
+    case 2:
+        sort_students_by_gpa(arr, num_students, maxStudent);
+        break;
+    case 3:
+        sort_students_by_name(arr, num_students, maxStudent);
+        break;
+    case 4:
+        return 0;
+        break;
+    default:
+        printf("Invalid choice.\n");
+    }
+
+    return 0;
+}
+
+void display_menu()
+{
+    printf("\n\n");
+    printf("********** MENU **********\n");
+    printf("1. Add Student\n");
+    printf("2. Display All Students\n");
+    printf("3. Display Students By (ID/GPA/Name)\n");
+    printf("4. Search Students By (ID/GPA/Name)\n");
+    printf("5. Calculate Average GPA\n");
+    printf("6. Update Student\n");
+    printf("7. Delete Student\n");
+    printf("8. Quit\n");
+}
+
 int main()
 {
-    int MAX_NUM_STUDENTS;
+    int maxStudent;
 
     printf("\nHow many student's data you have or want to store?: ");
-    if (scanf("%d", &MAX_NUM_STUDENTS) != 1)
+    if (scanf("%d", &maxStudent) != 1)
     {
         fprintf(stderr, "\nInvalid input for MAX number.\n");
         exit(1);
     }
 
-    Student *arr = malloc(MAX_NUM_STUDENTS * sizeof(Student));
+    Student *arr = malloc(maxStudent * sizeof(Student));
 
     if (arr == NULL)
     {
@@ -644,7 +776,7 @@ int main()
 
     int num_students = 0;
 
-    get_students_from_file(arr, &num_students, "students.txt", MAX_NUM_STUDENTS);
+    get_students_from_file(arr, &num_students, "students.txt", maxStudent);
 
     while (1)
     {
@@ -654,9 +786,9 @@ int main()
 
         printf("Enter your choice: ");
         scanf("%d", &choice);
-        while ((choice < 1 || choice > 9))
+        while ((choice < 1 || choice > 8))
         {
-            fprintf(stderr, "\nInvalid Choice. Please enter a value between 1 and 9.\n");
+            fprintf(stderr, "\nInvalid Choice. Please enter a value between 1 and 8.\n");
             printf("Enter your choice again: ");
             scanf("%d", &choice);
         }
@@ -664,31 +796,28 @@ int main()
         switch (choice)
         {
         case 1:
-            add_student(arr, &num_students, MAX_NUM_STUDENTS);
+            add_student(arr, &num_students, maxStudent);
             break;
         case 2:
-            delete_student(arr, &num_students);
-            break;
-        case 3:
             display_all_students(arr, num_students);
             break;
+        case 3:
+            sort_students(arr, num_students, maxStudent);
+            break;
         case 4:
-            display_students_by_gpa(arr, num_students, MAX_NUM_STUDENTS);
-            break;
-        case 5:
-            display_students_by_name(arr, num_students, MAX_NUM_STUDENTS);
-            break;
-        case 6:
             search_students(arr, num_students);
             break;
-        case 7:
+        case 5:
             avg_gpa(arr, num_students);
             break;
-        case 8:
-            update(arr, num_students);
+        case 6:
+            update_student(arr, num_students);
             break;
-        case 9:
-            printf("Goodbye!\n");
+        case 7:
+            delete_student(arr, &num_students);
+            break;
+        case 8:
+            printf("\nGoodbye!\n");
             save_students_to_file(arr, num_students, "students.txt");
             free(arr);
             exit(0);
